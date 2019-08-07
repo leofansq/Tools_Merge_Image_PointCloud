@@ -5,6 +5,8 @@ sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 import cv2
 from pyntcloud import PyntCloud
 
+import matplotlib.pyplot as plt 
+
 import os
 from tqdm import tqdm
 from pprint import pprint
@@ -180,8 +182,6 @@ def project_lidar2img(img, pc, p_matrix, debug=False):
             color = int((pc[idx,0]/depth_max)*255)
             cv2.rectangle(img, (int(i[0]-1),int(i[1]-1)), (int(i[0]+1),int(i[1]+1)), (0, 0, color), -1)
         show_img("Test", img)
-    
-    print (np.max(points[:,0]),np.max(points[:,1]))
 
     return points
 
@@ -192,15 +192,47 @@ def generate_colorpc(img, pc, pcimg, debug=False):
         img: image
         pc: PointCloud
         pcimg: PointCloud project to image
+    Return:
+        pc_color: PointCloud with color e.g. X Y Z R G B
     """
-    x = pcimg[:,1]
-    y = pcimg[:,0]
-    xy = np.hstack(x,y)
-    return 0
+    x = np.reshape(pcimg[:,0], (-1,1))
+    y = np.reshape(pcimg[:,1], (-1,1))
+    xy = np.hstack([x,y])
 
+    pc_color = []
+    for idx, i in enumerate(xy):
+        if (i[0]>1 and i[0]<img.shape[1]) and (i[1]>1 and i[1]<img.shape[0]):            
+            p_color = [pc[idx][0], pc[idx][1], pc[idx][2], img[i[1],i[0]][2], img[i[1],i[0]][1], img[i[1],i[0]][0]]
+            pc_color.append(p_color)
+    pc_color = np.array(pc_color)
+
+    return pc_color
+
+def save_pcd(filename, pc_color):
+    """
+    Save the PointCloud with color in the term of .pcd
+    Parameter:
+        filename: filename of the pcd file
+        pc_color: PointCloud with color
+    """
+    f = open(filename, "w")
+
+    f.write("# .PCD v0.7 - Point Cloud Data file format\n")
+    f.write("VERSION 0.7\n")
+    f.write("FIELDS x y z rgb\n")
+    f.write("SIZE 4 4 4 4\n")
+    f.write("TYPE F F F F\n")
+    f.write("COUNT 1 1 1 1\n")
+    f.write("WIDTH {}\n".format(pc_color.shape[0]))
+    f.write("HEIGHT 1\n")
+    f.write("POINTS {}\n".format(pc_color.shape[0]))
+    f.write("DATA ascii\n")
+
+    for i in pc_color:
+        rgb = (int(i[3])<<16) | (int(i[4])<<8) | (int(i[5]))
+        f.write("{:.6f} {:.6f} {:.6f} {}\n".format(i[0],i[1],i[2],rgb))
     
-
-
+    f.close()
 
 
 
@@ -214,14 +246,19 @@ if __name__ == '__main__':
     camera_id = 1
 
     filepath_img = "./img/0000000000.png"
+    # filepath_img = "./img/new.png"
     filepath_lidar = "./lidar/0000000000.bin"
+    filename_save = "./test.pcd"
 
     debug = False
 
     p_matrix = cal_proj_matrix(calib_cam2cam, calib_lidar2camera, camera_id, debug)
     img = load_img(filepath_img, debug)
+    # img = img[0:150,0:500]
     pc = load_lidar(filepath_lidar, debug)
-    project_lidar2img(img, pc, p_matrix, debug)
+    pcimg = project_lidar2img(img, pc, p_matrix, debug)
+    pc_color = generate_colorpc(img, pc, pcimg)
+    save_pcd(filename_save, pc_color)
 
     if debug:
         key = cv2.waitKey(0) & 0xFF
