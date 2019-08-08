@@ -1,19 +1,69 @@
-import numpy as np
+"""
+ @leofansq
 
-import sys
-sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
+ Basic function:
+    show_img(name, img): Show the image
+    find_files(directory, pattern): Method to find target files in one directory, including subdirectory
+ Load function:
+    load_calib_cam2cam(filename, debug=False): Only load R_rect & P_rect for need
+    load_calib_lidar2cam(filename, debug=False): Load calib parameters for LiDAR2Cam
+    load_calib(filename, debug=False): Load the calib parameters which has R_rect & P_rect & Tr in the same file
+    load_img(filename, debug=False): Load the image
+    load_lidar(filename, debug=False): Load the PointCloud
+ Process function:
+    cal_proj_matrix_raw(filename_c2c, filename_l2c, camera_id, debug=False): Compute the projection matrix from LiDAR to Img
+    cal_proj_matrix(filename, camera_id, debug=False): Compute the projection matrix from LiDAR to Image
+    project_lidar2img(img, pc, p_matrix, debug=False): Project the LiDAR PointCloud to Image
+    generate_colorpc(img, pc, pcimg, debug=False): Generate the PointCloud with color
+    save_pcd(filename, pc_color): Save the PointCloud with color in the term of .pcd
+"""
 import cv2
+import numpy as np
 from pyntcloud import PyntCloud
 
-import matplotlib.pyplot as plt 
-
 import os
+import fnmatch
 from tqdm import tqdm
 from pprint import pprint
 
+#**********************************************************#
+#                    Basic Function                        #
+#**********************************************************#
+
+def show_img(name, img):
+    """
+    Show the image
+
+    Parameters:    
+        name: name of window    
+        img: image
+    """
+    cv2.namedWindow(name, 0)
+    cv2.imshow(name, img)
+
+def find_files(directory, pattern):
+    """
+    Method to find target files in one directory, including subdirectory
+    :param directory: path
+    :param pattern: filter pattern
+    :return: target file path list
+    """
+    file_list = []
+    for root, _, files in os.walk(directory):
+        for basename in files:
+            if fnmatch.fnmatch(basename, pattern):
+                filename = os.path.join(root, basename)
+                file_list.append(filename)
+    
+    return file_list
+
+#**********************************************************#
+#                     Load Function                        #
+#**********************************************************#
+
 def load_calib_cam2cam(filename, debug=False):
     """
-    Only load R_rect & P_rect for neeed
+    Only load R_rect & P_rect for need
     Parameters: filename of the calib file
     Return: 
         R_rect: a list of r_rect(shape:3*3)
@@ -48,13 +98,12 @@ def load_calib_cam2cam(filename, debug=False):
 
 def load_calib_lidar2cam(filename, debug=False):
     """
-    Load calib
+    Load calib parameters for LiDAR2Cam
     Parameters: filename of the calib file
     Return:
         tr: shape(4*4)
             [  r   t
              0 0 0 1]
-
     """
     with open(filename) as f_calib:
         lines = f_calib.readlines()
@@ -78,42 +127,34 @@ def load_calib_lidar2cam(filename, debug=False):
 
     return tr
 
-def cal_proj_matrix(filename_c2c, filename_l2c, camera_id, debug=False):
+def load_calib(filename, debug=False):
     """
-    Compute the projection matrix from LiDAR to Img
+    Load the calib parameters which has R_rect & P_rect & Tr in the same file
     Parameters:
-        filename_c2c: filename of the calib file for cam2cam
-        filename_l2c: filename of the calib file for lidar2cam
-        camera_id: the NO. of camera
+        filename: the filename of the calib file
     Return:
-        P_lidar2img: the projection matrix from LiDAR to Img
+        R_rect, P_rect, Tr
     """
-    R_rect, P_rect = load_calib_cam2cam(filename_c2c, debug)
-    tr = load_calib_lidar2cam(filename_l2c, debug)
-
-    R_cam2rect = np.hstack([np.array([[0],[0],[0]]),R_rect[0]])
-    R_cam2rect = np.vstack([np.array([1,0,0,0]), R_cam2rect])
+    with open(filename) as f_calib:
+        lines = f_calib.readlines()
     
-    P_lidar2img = np.matmul(P_rect[camera_id+1], R_cam2rect)
-    P_lidar2img = np.matmul(P_lidar2img, tr)
-
-    if debug:
-        print ()
-        print ("P_lidar2img:")
-        print (P_lidar2img)
-
-    return P_lidar2img
-
-def show_img(name, img):
-    """
-    Show the image
-
-    Parameters:    
-        name: name of window    
-        img: image
-    """
-    cv2.namedWindow(name, 0)
-    cv2.imshow(name, img)
+        P_rect = []    
+    for line in lines:
+        title = line.strip().split(' ')[0]
+        if len(title):
+            if title[0] == "R":
+                R_rect = np.array(line.strip().split(' ')[1:], dtype=np.float32)
+                R_rect = np.reshape(R_rect, (3,3))
+            elif title[0] == "P":
+                p_r = np.array(line.strip().split(' ')[1:], dtype=np.float32)
+                p_r = np.reshape(p_r, (3,4))
+                P_rect.append(p_r)
+            elif title[:-1] == "Tr_velo_to_cam":
+                Tr = np.array(line.strip().split(' ')[1:], dtype=np.float32)
+                Tr = np.reshape(Tr, (3,4))
+                Tr = np.vstack([Tr,np.array([0,0,0,1])])
+    
+    return R_rect, P_rect, Tr
 
 def load_img(filename, debug=False):
     """
@@ -145,13 +186,71 @@ def load_lidar(filename, debug=False):
 
     # Remove all points behind image plane (approximation)
     cloud = PyntCloud.from_file("./temp_pc.bin")
-    cloud.points = cloud.points[cloud.points["x"]>=5]
+    cloud.points = cloud.points[cloud.points["x"]>=0]
     points = np.array(cloud.points)
 
     if debug:
         print (points.shape)
 
     return points
+
+#**********************************************************#
+#                   Process Function                       #
+#**********************************************************#
+
+def cal_proj_matrix_raw(filename_c2c, filename_l2c, camera_id, debug=False):
+    """
+    Compute the projection matrix from LiDAR to Img
+    Parameters:
+        filename_c2c: filename of the calib file for cam2cam
+        filename_l2c: filename of the calib file for lidar2cam
+        camera_id: the NO. of camera
+    Return:
+        P_lidar2img: the projection matrix from LiDAR to Img
+    """
+    # Load Calib Parameters
+    R_rect, P_rect = load_calib_cam2cam(filename_c2c, debug)
+    tr = load_calib_lidar2cam(filename_l2c, debug)
+
+    # Calculation
+    R_cam2rect = np.hstack([np.array([[0],[0],[0]]),R_rect[0]])
+    R_cam2rect = np.vstack([np.array([1,0,0,0]), R_cam2rect])
+    
+    P_lidar2img = np.matmul(P_rect[camera_id], R_cam2rect)
+    P_lidar2img = np.matmul(P_lidar2img, tr)
+
+    if debug:
+        print ()
+        print ("P_lidar2img:")
+        print (P_lidar2img)
+
+    return P_lidar2img
+
+def cal_proj_matrix(filename, camera_id, debug=False):
+    """
+    Compute the projection matrix from LiDAR to Image
+    Parameters:
+        filename: filename of the calib file
+        camera_id: the NO. of camera
+    Return:
+        P_lidar2img: the projection matrix from LiDAR to Image
+    """
+    # Load Calib Parameters
+    R_rect, P_rect, tr = load_calib(filename, debug)
+
+    # Calculation
+    R_cam2rect = np.hstack([np.array([[0],[0],[0]]),R_rect])
+    R_cam2rect = np.vstack([np.array([1,0,0,0]), R_cam2rect])
+    
+    P_lidar2img = np.matmul(P_rect[camera_id], R_cam2rect)
+    P_lidar2img = np.matmul(P_lidar2img, tr)
+
+    if debug:
+        print ()
+        print ("P_lidar2img:")
+        print (P_lidar2img)
+
+    return P_lidar2img
 
 def project_lidar2img(img, pc, p_matrix, debug=False):
     """
@@ -235,24 +334,21 @@ def save_pcd(filename, pc_color):
     f.close()
 
 
-
-
-
-
-
-if __name__ == '__main__':
+if __name__ == '__main__':  
+    # Option
     calib_cam2cam = "./calib/calib_cam_to_cam.txt"
     calib_lidar2camera = "./calib/calib_velo_to_cam.txt"
     camera_id = 1
 
-    filepath_img = "./img/0000000000.png"
-    # filepath_img = "./img/new.png"
-    filepath_lidar = "./lidar/0000000000.bin"
+    # filepath_img = "./img/0000000000.png"
+    filepath_img = "./new.png"
+    filepath_lidar = "./lidar/0000000022.bin"
     filename_save = "./test.pcd"
 
     debug = False
 
-    p_matrix = cal_proj_matrix(calib_cam2cam, calib_lidar2camera, camera_id, debug)
+    # Process
+    p_matrix = cal_proj_matrix_raw(calib_cam2cam, calib_lidar2camera, camera_id, debug)
     img = load_img(filepath_img, debug)
     # img = img[0:150,0:500]
     pc = load_lidar(filepath_lidar, debug)
