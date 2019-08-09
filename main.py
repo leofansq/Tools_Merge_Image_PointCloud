@@ -30,6 +30,8 @@ LIDAR_PATH = "./lidar/"
 # Save File
 SIMG_PATH = "./result/img/"
 SPC_PATH = "./result/pcd/"
+SBEV_PATH = "./result/bev/"
+SFV_PATH = "./result/fv/"
 
 ################# PARAMETER ####################
 CAM_ID = 2
@@ -72,6 +74,18 @@ def main():
         pc_color = generate_colorpc(img, pc, points)
 
         save_pcd(SPC_PATH + img_name[:-4] + ".pcd", pc_color)
+
+        # BEV
+        img_bev = np.zeros((800, 700, 3))
+        for i in pc_color:
+            img_bev[-int(i[0]*10)+799, int(-i[1]*10)+350] = [i[5], i[4], i[3]]
+        cv2.imwrite(SBEV_PATH+img_name[:-4]+"_bev.png", img_bev)
+
+        # FV
+        img_fv = np.zeros((80,700,3))
+        for i in pc_color:
+            img_fv[-int(i[2]*10+40), int(-i[1]*10)+350] = [i[5], i[4], i[3]]
+        cv2.imwrite(SFV_PATH+img_name[:-4]+"_fv.png", img_fv)
         
         # Time Cost
         end_time = time.time()

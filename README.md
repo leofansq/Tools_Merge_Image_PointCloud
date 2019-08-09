@@ -32,6 +32,8 @@ This code is to porject the LiDAR point cloud to the image & generate the point 
     * LIDAR_PATH: The path of point cloud files
     * SIMG_PATH: The path to stored the result images
     * SPC_PATH: The path to stored the result point cloud with color
+    * SBEV_PATH: The path to stored the result BEV
+    * SFV_PATH: The path to stored the result FV
     * CAM_ID: The NO. of the camera.
         > For the multi-camera sensor system like KITTI, you need to set it to the ID of the camera. For the system which only has one camera, it is set to be 0.
 
@@ -50,8 +52,14 @@ The result image is saved in the path you set
     ```Bash
     pcl_viewer ./xxxxxxx.pcd
     ```
-
 ![demo_pc.png](./demo/demo_pc.png)
+
+### BEV & FV
+The BEV & FV is saved in the path you set
+![img.png](./demo/img.png)
+
+![demo_BEV.png](./demo/demo_BEV.png)
+![demo_FV.png](./demo/demo_FV.png)
 
 ## TODO
 * Fix the color problem of the point cloud
