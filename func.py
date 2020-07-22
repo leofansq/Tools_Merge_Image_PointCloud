@@ -63,7 +63,7 @@ def find_files(directory, pattern):
 
 def load_calib_cam2cam(filename, debug=False):
     """
-    Only load R_rect & P_rect for need
+    Only load R_rect & P_rect for neeed
     Parameters: filename of the calib file
     Return: 
         R_rect: a list of r_rect(shape:3*3)
@@ -98,7 +98,7 @@ def load_calib_cam2cam(filename, debug=False):
 
 def load_calib_lidar2cam(filename, debug=False):
     """
-    Load calib parameters for LiDAR2Cam
+    Load calib
     Parameters: filename of the calib file
     Return:
         tr: shape(4*4)
@@ -155,6 +155,7 @@ def load_calib(filename, debug=False):
                 Tr = np.vstack([Tr,np.array([0,0,0,1])])
     
     return R_rect, P_rect, Tr
+
 
 def load_img(filename, debug=False):
     """
@@ -228,12 +229,12 @@ def cal_proj_matrix_raw(filename_c2c, filename_l2c, camera_id, debug=False):
 
 def cal_proj_matrix(filename, camera_id, debug=False):
     """
-    Compute the projection matrix from LiDAR to Image
+    Compute the projection matrix from LiDAR to Img
     Parameters:
         filename: filename of the calib file
         camera_id: the NO. of camera
     Return:
-        P_lidar2img: the projection matrix from LiDAR to Image
+        P_lidar2img: the projection matrix from LiDAR to Img
     """
     # Load Calib Parameters
     R_rect, P_rect, tr = load_calib(filename, debug)
@@ -300,8 +301,9 @@ def generate_colorpc(img, pc, pcimg, debug=False):
 
     pc_color = []
     for idx, i in enumerate(xy):
-        if (i[0]>1 and i[0]<img.shape[1]) and (i[1]>1 and i[1]<img.shape[0]):            
-            p_color = [pc[idx][0], pc[idx][1], pc[idx][2], img[i[1],i[0]][2], img[i[1],i[0]][1], img[i[1],i[0]][0]]
+        if (i[0]>1 and i[0]<img.shape[1]) and (i[1]>1 and i[1]<img.shape[0]): 
+            bgr = img[int(i[1]), int(i[0])]
+            p_color = [pc[idx][0], pc[idx][1], pc[idx][2], bgr[2], bgr[1], bgr[0]]
             pc_color.append(p_color)
     pc_color = np.array(pc_color)
 
@@ -328,8 +330,9 @@ def save_pcd(filename, pc_color):
     f.write("DATA ascii\n")
 
     for i in pc_color:
-        rgb = (int(i[3])<<16) | (int(i[4])<<8) | (int(i[5]))
-        f.write("{:.6f} {:.6f} {:.6f} {}\n".format(i[0],i[1],i[2],rgb))
+        # rgb = (int(i[3])<<16) | (int(i[4])<<8) | (int(i[5]) | 1<<24)
+        # f.write("{:.6f} {:.6f} {:.6f} {}\n".format(i[0],i[1],i[2],rgb))
+        f.write("{:.6f} {:.6f} {:.6f} {} {} {}\n".format(i[0],i[1],i[2],i[3],i[4],i[5]))
     
     f.close()
 
@@ -340,17 +343,17 @@ if __name__ == '__main__':
     calib_lidar2camera = "./calib/calib_velo_to_cam.txt"
     camera_id = 1
 
-    # filepath_img = "./img/0000000000.png"
-    filepath_img = "./new.png"
-    filepath_lidar = "./lidar/0000000022.bin"
+    filepath_img = "./img/000003.png"
+    # filepath_img = "./new.png"
+    filepath_lidar = "./lidar/000003.bin"
     filename_save = "./test.pcd"
 
-    debug = False
+    debug = True
 
     # Process
     p_matrix = cal_proj_matrix_raw(calib_cam2cam, calib_lidar2camera, camera_id, debug)
     img = load_img(filepath_img, debug)
-    # img = img[0:150,0:500]
+    img = img[0:150,0:500]
     pc = load_lidar(filepath_lidar, debug)
     pcimg = project_lidar2img(img, pc, p_matrix, debug)
     pc_color = generate_colorpc(img, pc, pcimg)

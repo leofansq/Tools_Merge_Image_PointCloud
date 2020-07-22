@@ -1,6 +1,8 @@
 ## About
 This code is to porject the LiDAR point cloud to the image & generate the point cloud with color
-![demo.png](./demo/demo.png)
+<img src="./demo/demo_img.png" width = "600">
+<img src="./demo/demo_pc.png" width = "600">
+
 ## Input
 * Images (.png files)
 * Point cloud files (.bin files)
@@ -48,20 +50,16 @@ The result image is saved in the path you set
 
 ### Point cloud with color
 * Go to the path you set to save the result .pcd files
-* Use Pcl_viewer to show the point cloud
+* Use Open3d 0.7.0.0 to show the point cloud
     ```Bash
-    pcl_viewer ./xxxxxxx.pcd
+    python pcd_vis.py
     ```
-![demo_pc.png](./demo/demo_pc.png)
+
+<img src="./demo/demo_pc.png" width = "600">
 
 ### BEV & FV
 The BEV & FV is saved in the path you set
-![img.png](./demo/img.png)
 
-![demo_BEV.png](./demo/demo_BEV.png)
-![demo_FV.png](./demo/demo_FV.png)
-
-## TODO
-* Fix the color problem of the point cloud
+<img src="./demo/demo_bev_fv.png" width = "600">
 
 
