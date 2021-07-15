@@ -222,8 +222,6 @@ def cal_proj_matrix_raw(filename_c2c, filename_l2c, camera_id, debug=False):
 
     if debug:
         print ()
-        print ("R_camae:")
-        print (R_cam2rect)
         print ("P_lidar2img:")
         print (P_lidar2img)
 
