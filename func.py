@@ -214,14 +214,16 @@ def cal_proj_matrix_raw(filename_c2c, filename_l2c, camera_id, debug=False):
     tr = load_calib_lidar2cam(filename_l2c, debug)
 
     # Calculation
-    R_cam2rect = np.hstack([np.array([[0],[0],[0]]),R_rect[0]])
-    R_cam2rect = np.vstack([np.array([1,0,0,0]), R_cam2rect])
+    R_cam2rect = np.hstack([R_rect[0], np.array([[0],[0],[0]])])
+    R_cam2rect = np.vstack([R_cam2rect, np.array([0,0,0,1])])
     
     P_lidar2img = np.matmul(P_rect[camera_id], R_cam2rect)
     P_lidar2img = np.matmul(P_lidar2img, tr)
 
     if debug:
         print ()
+        print ("R_camae:")
+        print (R_cam2rect)
         print ("P_lidar2img:")
         print (P_lidar2img)
 
@@ -240,8 +242,8 @@ def cal_proj_matrix(filename, camera_id, debug=False):
     R_rect, P_rect, tr = load_calib(filename, debug)
 
     # Calculation
-    R_cam2rect = np.hstack([np.array([[0],[0],[0]]),R_rect])
-    R_cam2rect = np.vstack([np.array([1,0,0,0]), R_cam2rect])
+    R_cam2rect = np.hstack([R_rect, np.array([[0],[0],[0]])])
+    R_cam2rect = np.vstack([R_cam2rect, np.array([0,0,0,1])])
     
     P_lidar2img = np.matmul(P_rect[camera_id], R_cam2rect)
     P_lidar2img = np.matmul(P_lidar2img, tr)
